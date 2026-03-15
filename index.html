@@ -1,404 +1,1353 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>DOHYŌ — Grand Sumo Results</title>
-  <meta name="description" content="Live Makuuchi division results, standings, and wrestler profiles from Grand Sumo tournaments."/>
-  <meta name="theme-color" content="#141110"/>
-  <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
-  <style>
-    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    html,body,#root{height:100%}
-    body{background:#141110;font-family:'Crimson Text',serif}
-    @keyframes spin{to{transform:rotate(360deg)}}
-    @keyframes slideUp{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}
-    ::-webkit-scrollbar{width:4px}
-    ::-webkit-scrollbar-track{background:#1a1612}
-    ::-webkit-scrollbar-thumb{background:#3a3225;border-radius:2px}
-    select{appearance:none;-webkit-appearance:none}
-  </style>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>DOHYŌ — Grand Sumo Results</title>
+    <meta name="description" content="Live Makuuchi division results, standings, and wrestler profiles from Grand Sumo tournaments."/>
+    <meta name="theme-color" content="#141110"/>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+    <style>
+    *, *::before, *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0
+    }
+
+    html, body, #root {
+        height: 100%
+    }
+
+    body {
+        background: #141110;
+        font-family: 'Crimson Text', serif
+    }
+
+    @keyframes spin {
+        to {
+            transform: rotate(360deg)
+        }
+    }
+
+    @keyframes slideUp {
+        from {
+            transform: translateY(100%);
+            opacity:0
+        }
+
+        to {
+            transform: translateY(0);
+            opacity: 1
+        }
+    }
+
+    ::-webkit-scrollbar {
+        width: 4px
+    }
+
+    ::-webkit-scrollbar-track {
+        background: #1a1612
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: #3a3225;
+        border-radius: 2px
+    }
+
+    select {
+        appearance: none;
+        -webkit-appearance: none
+    }
+    </style>
 </head>
 <body>
-<div id="root"></div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js" crossorigin></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js" crossorigin></script>
-<script>
-// No Babel needed — pure React.createElement
-var h = React.createElement;
-var useState = React.useState;
-var useEffect = React.useEffect;
-var useMemo = React.useMemo;
+    <div id="root"></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js" crossorigin></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js" crossorigin></script>
+    <script>
+    // No Babel needed — pure React.createElement
+    var h = React.createElement;
+    var useState = React.useState;
+    var useEffect = React.useEffect;
+    var useMemo = React.useMemo;
 
-var API = "https://www.sumo-api.com/api";
-var BASHO = [
-  {id:"202603",label:"Haru 2026",location:"Osaka",month:"March"},
-  {id:"202601",label:"Hatsu 2026",location:"Tokyo",month:"January"},
-  {id:"202511",label:"Ky\u016bsh\u016b 2025",location:"Fukuoka",month:"November"},
-  {id:"202509",label:"Aki 2025",location:"Tokyo",month:"September"},
-  {id:"202507",label:"Nagoya 2025",location:"Nagoya",month:"July"},
-  {id:"202505",label:"Natsu 2025",location:"Tokyo",month:"May"}
-];
-var RANKS = ["Yokozuna","Ozeki","Sekiwake","Komusubi",
-  "Maegashira 1","Maegashira 2","Maegashira 3","Maegashira 4",
-  "Maegashira 5","Maegashira 6","Maegashira 7","Maegashira 8",
-  "Maegashira 9","Maegashira 10","Maegashira 11","Maegashira 12",
-  "Maegashira 13","Maegashira 14","Maegashira 15","Maegashira 16",
-  "Maegashira 17","Maegashira 18"];
-
-var ewRe = new RegExp("\\s*(East|West)\\s*","i");
-var mgRe = new RegExp("Maegashira\\s*(\\d+)","i");
-
-function ri(rank){
-  if(!rank)return 999;
-  var r=rank.replace(ewRe,"").trim();
-  var idx=RANKS.findIndex(function(x){return r.toLowerCase().startsWith(x.toLowerCase());});
-  return idx===-1?998:idx;
-}
-function rs(rank){
-  if(!rank)return"";
-  var side=rank.indexOf("East")>=0?"E":rank.indexOf("West")>=0?"W":"";
-  var c=rank.replace(ewRe,"").trim();
-  var a={Yokozuna:"Y",Ozeki:"O",Sekiwake:"S",Komusubi:"K"};
-  for(var k in a){if(c.indexOf(k)===0)return a[k]+side;}
-  var m=c.match(mgRe);
-  return m?"M"+m[1]+side:c;
-}
-function rt(rank){
-  if(!rank)return"maegashira";
-  if(rank.indexOf("Yokozuna")>=0)return"yokozuna";
-  if(rank.indexOf("Ozeki")>=0)return"ozeki";
-  if(rank.indexOf("Sekiwake")>=0||rank.indexOf("Komusubi")>=0)return"sanyaku";
-  return"maegashira";
-}
-function fjson(url){
-  return fetch(url).then(function(r){
-    if(!r.ok)return null;
-    return r.text().then(function(t){
-      if(!t||!t.trim())return null;
-      try{return JSON.parse(t);}catch(e){return null;}
-    });
-  }).catch(function(){return null;});
-}
-function norm(data){
-  if(!data)return[];
-  var all=[];
-  if(data.east&&Array.isArray(data.east))all=all.concat(data.east);
-  if(data.west&&Array.isArray(data.west))all=all.concat(data.west);
-  if(all.length===0&&Array.isArray(data))all=data;
-  return all.map(function(e){
-    return{
-      id:e.rikishiID||e.rikishiId||e.id||0,
-      name:e.shikonaEn||e.shikona||"Unknown",
-      rank:e.rank||"",
-      rv:e.rankValue||0,
-      wins:e.wins||0,
-      losses:e.losses||0,
-      abs:e.absences||0,
-      record:Array.isArray(e.record)?e.record:[]
-    };
-  });
-}
-function dayMatches(ws,di){
-  var ms=[],used={};
-  for(var i=0;i<ws.length;i++){
-    var w=ws[i];
-    if(used[w.id])continue;
-    var rec=w.record[di];
-    if(!rec)continue;
-    var on=rec.opponentShikonaEn||rec.opponentShikona||rec.opponent||"";
-    if(!on)continue;
-    var opp=null;
-    for(var j=0;j<ws.length;j++){
-      if(ws[j].name===on&&!used[ws[j].id]){opp=ws[j];break;}
+    var API = "https://www.sumo-api.com/api";
+    var BASHO = [
+    {
+        id: "202603",
+        label: "Haru 2026",
+        location: "Osaka",
+        month: "March"
+    },
+    {
+        id: "202601",
+        label: "Hatsu 2026",
+        location: "Tokyo",
+        month: "January"
+    },
+    {
+        id: "202511",
+        label: "Ky\u016bsh\u016b 2025",
+        location: "Fukuoka",
+        month: "November"
+    },
+    {
+        id: "202509",
+        label: "Aki 2025",
+        location: "Tokyo",
+        month: "September"
+    },
+    {
+        id: "202507",
+        label: "Nagoya 2025",
+        location: "Nagoya",
+        month: "July"
+    },
+    {
+        id: "202505",
+        label: "Natsu 2025",
+        location: "Tokyo",
+        month: "May"
     }
-    used[w.id]=true;
-    if(!opp){
-      var iw=rec.result==="win"||rec.result==="fusen win";
-      ms.push({eId:w.id,eN:w.name,eR:w.rank,wId:0,wN:on,wR:"",win:iw?w.id:0,km:rec.kimarite||""});
-      continue;
+    ];
+    var RANKS = ["Yokozuna", "Ozeki", "Sekiwake", "Komusubi",
+    "Maegashira 1", "Maegashira 2", "Maegashira 3", "Maegashira 4",
+    "Maegashira 5", "Maegashira 6", "Maegashira 7", "Maegashira 8",
+    "Maegashira 9", "Maegashira 10", "Maegashira 11", "Maegashira 12",
+    "Maegashira 13", "Maegashira 14", "Maegashira 15", "Maegashira 16",
+    "Maegashira 17", "Maegashira 18"];
+
+    var ewRe = new RegExp("\\s*(East|West)\\s*", "i");
+    var mgRe = new RegExp("Maegashira\\s*(\\d+)", "i");
+
+    function ri(rank) {
+        if (!rank)
+            return 999;
+        var r = rank.replace(ewRe, "").trim();
+        var idx = RANKS.findIndex(function(x) {
+            return r.toLowerCase().startsWith(x.toLowerCase());
+        });
+        return idx === -1 ? 998 : idx;
     }
-    used[opp.id]=true;
-    var east=ri(w.rank)<=ri(opp.rank)?w:opp;
-    var west=east===w?opp:w;
-    var er=east.record[di],wr=west.record[di];
-    var ew=er&&(er.result==="win"||er.result==="fusen win");
-    var ww=wr&&(wr.result==="win"||wr.result==="fusen win");
-    ms.push({
-      eId:east.id,eN:east.name,eR:east.rank,
-      wId:west.id,wN:west.name,wR:west.rank,
-      win:ew?east.id:ww?west.id:null,
-      km:(ew?(er.kimarite||""):(wr?wr.kimarite||"":""))||""
-    });
-  }
-  ms.sort(function(a,b){return ri(a.eR)-ri(b.eR);});
-  return ms;
-}
+    function rs(rank) {
+        if (!rank)
+            return "";
+        var side = rank.indexOf("East") >= 0 ? "E" : rank.indexOf("West") >= 0 ? "W" : "";
+        var c = rank.replace(ewRe, "").trim();
+        var a = {
+            Yokozuna: "Y",
+            Ozeki: "O",
+            Sekiwake: "S",
+            Komusubi: "K"
+        };
+        for (var k in a) {
+            if (c.indexOf(k) === 0)
+                return a[k] + side;
+        }
+        var m = c.match(mgRe);
+        return m ? "M" + m[1] + side : c;
+    }
+    function rt(rank) {
+        if (!rank)
+            return "maegashira";
+        if (rank.indexOf("Yokozuna") >= 0)
+            return "yokozuna";
+        if (rank.indexOf("Ozeki") >= 0)
+            return "ozeki";
+        if (rank.indexOf("Sekiwake") >= 0 || rank.indexOf("Komusubi") >= 0)
+            return "sanyaku";
+        return "maegashira";
+    }
+    function fjson(url) {
+        return fetch(url).then(function(r) {
+            if (!r.ok)
+                return null;
+            return r.text().then(function(t) {
+                if (!t || !t.trim())
+                    return null;
+                try {
+                    return JSON.parse(t);
+                } catch (e) {
+                    return null;
+                }
+            });
+        }).catch(function() {
+            return null;
+        });
+    }
+    function norm(data) {
+        if (!data)
+            return [];
+        var all = [];
+        if (data.east && Array.isArray(data.east))
+            all = all.concat(data.east);
+        if (data.west && Array.isArray(data.west))
+            all = all.concat(data.west);
+        if (all.length === 0 && Array.isArray(data))
+            all = data;
+        return all.map(function(e) {
+            return {
+                id: e.rikishiID || e.rikishiId || e.id || 0,
+                name: e.shikonaEn || e.shikona || "Unknown",
+                rank: e.rank || "",
+                rv: e.rankValue || 0,
+                wins: e.wins || 0,
+                losses: e.losses || 0,
+                abs: e.absences || 0,
+                record: Array.isArray(e.record) ? e.record : []
+            };
+        });
+    }
+    function dayMatches(ws, di) {
+        var ms = [],
+            used = {};
+        for (var i = 0; i < ws.length; i++) {
+            var w = ws[i];
+            if (used[w.id])
+                continue;
+            var rec = w.record[di];
+            if (!rec)
+                continue;
+            var on = rec.opponentShikonaEn || rec.opponentShikona || rec.opponent || "";
+            if (!on)
+                continue;
+            var opp = null;
+            for (var j = 0; j < ws.length; j++) {
+                if (ws[j].name === on && !used[ws[j].id]) {
+                    opp = ws[j];
+                    break;
+                }
+            }
+            used[w.id] = true;
+            if (!opp) {
+                var iw = rec.result === "win" || rec.result === "fusen win";
+                ms.push({
+                    eId: w.id,
+                    eN: w.name,
+                    eR: w.rank,
+                    wId: 0,
+                    wN: on,
+                    wR: "",
+                    win: iw ? w.id : 0,
+                    km: rec.kimarite || ""
+                });
+                continue;
+            }
+            used[opp.id] = true;
+            var east = ri(w.rank) <= ri(opp.rank) ? w : opp;
+            var west = east === w ? opp : w;
+            var er = east.record[di],
+                wr = west.record[di];
+            var ew = er && (er.result === "win" || er.result === "fusen win");
+            var ww = wr && (wr.result === "win" || wr.result === "fusen win");
+            ms.push({
+                eId: east.id,
+                eN: east.name,
+                eR: east.rank,
+                wId: west.id,
+                wN: west.name,
+                wR: west.rank,
+                win: ew ? east.id : ww ? west.id : null,
+                km: (ew ? (er.kimarite || "") : (wr ? wr.kimarite || "" : "")) || ""
+            });
+        }
+        ms.sort(function(a, b) {
+            return ri(a.eR) - ri(b.eR);
+        });
+        return ms;
+    }
 
-/* --- SVG icons --- */
-function ChevL(){
-  return h("svg",{width:20,height:20,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:2.5,strokeLinecap:"round",strokeLinejoin:"round"},
-    h("path",{d:"M15 18l-6-6 6-6"}));
-}
-function ChevR(){
-  return h("svg",{width:20,height:20,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:2.5,strokeLinecap:"round",strokeLinejoin:"round"},
-    h("path",{d:"M9 18l6-6-6 6"}));
-}
+    /* --- SVG icons --- */
+    function ChevL() {
+        return h("svg", {
+            width: 20,
+            height: 20,
+            viewBox: "0 0 24 24",
+            fill: "none",
+            stroke: "currentColor",
+            strokeWidth: 2.5,
+            strokeLinecap: "round",
+            strokeLinejoin: "round"
+        },
+        h("path", {
+            d: "M15 18l-6-6 6-6"
+        }));
+    }
+    function ChevR() {
+        return h("svg", {
+            width: 20,
+            height: 20,
+            viewBox: "0 0 24 24",
+            fill: "none",
+            stroke: "currentColor",
+            strokeWidth: 2.5,
+            strokeLinecap: "round",
+            strokeLinejoin: "round"
+        },
+        h("path", {
+            d: "M9 18l6-6-6 6"
+        }));
+    }
 
-/* --- Shared --- */
-function Spinner(){
-  return h("div",{style:{display:"flex",justifyContent:"center",padding:"3rem"}},
-    h("div",{style:{width:40,height:40,borderRadius:"50%",border:"3px solid rgba(191,161,104,0.2)",borderTopColor:"#BFA168",animation:"spin 0.8s linear infinite"}}));
-}
-function Err(p){
-  return h("div",{style:{textAlign:"center",padding:"2rem",color:"#BFA168",fontFamily:"'Crimson Text',serif"}},
-    h("p",{style:{fontSize:"1.1rem",marginBottom:"1rem"}},p.msg),
-    p.retry?h("button",{onClick:p.retry,style:{background:"none",border:"1px solid #BFA168",color:"#BFA168",padding:"0.5rem 1.5rem",borderRadius:4,cursor:"pointer",fontFamily:"'Crimson Text',serif",fontSize:"1rem"}},"Retry"):null);
-}
+    /* --- Shared --- */
+    function Spinner() {
+        return h("div", {
+            style: {
+                display: "flex",
+                justifyContent: "center",
+                padding: "3rem"
+            }
+        },
+        h("div", {
+            style: {
+                width: 40,
+                height: 40,
+                borderRadius: "50%",
+                border: "3px solid rgba(191,161,104,0.2)",
+                borderTopColor: "#BFA168",
+                animation: "spin 0.8s linear infinite"
+            }
+        }));
+    }
+    function Err(p) {
+        return h("div", {
+            style: {
+                textAlign: "center",
+                padding: "2rem",
+                color: "#BFA168",
+                fontFamily: "'Crimson Text',serif"
+            }
+        },
+        h("p", {
+            style: {
+                fontSize: "1.1rem",
+                marginBottom: "1rem"
+            }
+        }, p.msg),
+        p.retry ? h("button", {
+            onClick: p.retry,
+            style: {
+                background: "none",
+                border: "1px solid #BFA168",
+                color: "#BFA168",
+                padding: "0.5rem 1.5rem",
+                borderRadius: 4,
+                cursor: "pointer",
+                fontFamily: "'Crimson Text',serif",
+                fontSize: "1rem"
+            }
+        }, "Retry") : null);
+    }
 
-/* --- Day Selector --- */
-function DaySel(p){
-  var btns=[];
-  for(var i=1;i<=p.max;i++){(function(d){
-    btns.push(h("button",{key:d,onClick:function(){p.set(d);},style:{width:28,height:28,borderRadius:"50%",border:"none",background:d===p.day?"#BFA168":"transparent",color:d===p.day?"#1a1612":"#8a7d6b",fontFamily:"'Noto Sans JP',sans-serif",fontSize:"0.75rem",fontWeight:d===p.day?700:400,cursor:"pointer",transition:"all 0.15s"}},d));
-  })(i);}
-  return h("div",{style:{display:"flex",alignItems:"center",justifyContent:"center",gap:"0.5rem",padding:"0.75rem 0"}},
-    h("button",{onClick:function(){p.set(Math.max(1,p.day-1));},disabled:p.day<=1,style:{background:"none",border:"none",color:p.day<=1?"#3a3225":"#BFA168",cursor:p.day<=1?"default":"pointer",padding:"0.25rem",display:"flex",alignItems:"center"}},h(ChevL)),
-    h("div",{style:{display:"flex",gap:"4px",flexWrap:"wrap",justifyContent:"center",maxWidth:360}},btns),
-    h("button",{onClick:function(){p.set(Math.min(p.max,p.day+1));},disabled:p.day>=p.max,style:{background:"none",border:"none",color:p.day>=p.max?"#3a3225":"#BFA168",cursor:p.day>=p.max?"default":"pointer",padding:"0.25rem",display:"flex",alignItems:"center"}},h(ChevR)));
-}
+    /* --- Day Selector --- */
+    function DaySel(p) {
+        var btns = [];
+        for (var i = 1; i <= p.max; i++) {
+            (function(d) {
+                btns.push(h("button", {
+                    key: d,
+                    onClick: function() {
+                        p.set(d);
+                    },
+                    style: {
+                        width: 28,
+                        height: 28,
+                        borderRadius: "50%",
+                        border: "none",
+                        background: d === p.day ? "#BFA168" : "transparent",
+                        color: d === p.day ? "#1a1612" : "#8a7d6b",
+                        fontFamily: "'Noto Sans JP',sans-serif",
+                        fontSize: "0.75rem",
+                        fontWeight: d === p.day ? 700 : 400,
+                        cursor: "pointer",
+                        transition: "all 0.15s"
+                    }
+                }, d));
+            })(i);
+        }
+        return h("div", {
+            style: {
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "0.5rem",
+                padding: "0.75rem 0"
+            }
+        },
+        h("button", {
+            onClick: function() {
+                p.set(Math.max(1, p.day - 1));
+            },
+            disabled: p.day <= 1,
+            style: {
+                background: "none",
+                border: "none",
+                color: p.day <= 1 ? "#3a3225" : "#BFA168",
+                cursor: p.day <= 1 ? "default" : "pointer",
+                padding: "0.25rem",
+                display: "flex",
+                alignItems: "center"
+            }
+        }, h(ChevL)),
+        h("div", {
+            style: {
+                display: "flex",
+                gap: "4px",
+                flexWrap: "wrap",
+                justifyContent: "center",
+                maxWidth: 360
+            }
+        }, btns),
+        h("button", {
+            onClick: function() {
+                p.set(Math.min(p.max, p.day + 1));
+            },
+            disabled: p.day >= p.max,
+            style: {
+                background: "none",
+                border: "none",
+                color: p.day >= p.max ? "#3a3225" : "#BFA168",
+                cursor: p.day >= p.max ? "default" : "pointer",
+                padding: "0.25rem",
+                display: "flex",
+                alignItems: "center"
+            }
+        }, h(ChevR)));
+    }
 
-/* --- Match Card --- */
-function MCard(p){
-  var m=p.m,hr=!!m.win;
-  var ew=hr&&m.win===m.eId,ww=hr&&m.win===m.wId;
-  return h("div",{style:{background:"#1e1a14",borderRadius:8,padding:"0.85rem 1rem",border:"1px solid #2d271f",marginBottom:"0.5rem"}},
-    h("div",{style:{display:"grid",gridTemplateColumns:"1fr auto 1fr",alignItems:"center",gap:"0.5rem"}},
-      // East
-      h("div",{style:{textAlign:"right",cursor:"pointer"},onClick:function(){if(m.eId)p.onSel(m.eId,m.eN);}},
-        h("span",{style:{fontSize:"0.65rem",color:"#6b6156",fontFamily:"'Noto Sans JP',sans-serif",textTransform:"uppercase",letterSpacing:"0.05em"}},rs(m.eR)),
-        h("div",{style:{fontSize:"1.05rem",fontFamily:"'Crimson Text',serif",fontWeight:600,color:!hr?"#c9bca8":ew?"#d4a843":"#5a5248"}},
-          m.eN, ew?h("span",{style:{marginLeft:6,fontSize:"0.7rem"}},"\u25CF"):null)),
-      // Center
-      h("div",{style:{textAlign:"center",minWidth:45,fontFamily:"'Noto Sans JP',sans-serif"}},
-        hr?h("div",{style:{fontSize:"0.6rem",color:"#7a6f60",textTransform:"uppercase",letterSpacing:"0.08em",lineHeight:1.4}},m.km||"\u2014")
-          :h("div",{style:{fontSize:"0.75rem",color:"#4a4238",fontWeight:600}},"VS")),
-      // West
-      h("div",{style:{textAlign:"left",cursor:"pointer"},onClick:function(){if(m.wId)p.onSel(m.wId,m.wN);}},
-        h("span",{style:{fontSize:"0.65rem",color:"#6b6156",fontFamily:"'Noto Sans JP',sans-serif",textTransform:"uppercase",letterSpacing:"0.05em"}},rs(m.wR)),
-        h("div",{style:{fontSize:"1.05rem",fontFamily:"'Crimson Text',serif",fontWeight:600,color:!hr?"#c9bca8":ww?"#d4a843":"#5a5248"}},
-          ww?h("span",{style:{marginRight:6,fontSize:"0.7rem"}},"\u25CF"):null, m.wN))));
-}
+    /* --- Match Card --- */
+    function MCard(p) {
+        var m = p.m,
+            hr = !!m.win;
+        var ew = hr && m.win === m.eId,
+            ww = hr && m.win === m.wId;
+        return h("div", {
+            style: {
+                background: "#1e1a14",
+                borderRadius: 8,
+                padding: "0.85rem 1rem",
+                border: "1px solid #2d271f",
+                marginBottom: "0.5rem"
+            }
+        },
+        h("div", {
+            style: {
+                display: "grid",
+                gridTemplateColumns: "1fr auto 1fr",
+                alignItems: "center",
+                gap: "0.5rem"
+            }
+        }, // East
+        h("div", {
+            style: {
+                textAlign: "right",
+                cursor: "pointer"
+            },
+            onClick: function() {
+                if (m.eId)
+                    p.onSel(m.eId, m.eN);
+            }
+        },
+        h("span", {
+            style: {
+                fontSize: "0.65rem",
+                color: "#6b6156",
+                fontFamily: "'Noto Sans JP',sans-serif",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em"
+            }
+        }, rs(m.eR)),
+        h("div", {
+            style: {
+                fontSize: "1.05rem",
+                fontFamily: "'Crimson Text',serif",
+                fontWeight: 600,
+                color: !hr ? "#c9bca8" : ew ? "#d4a843" : "#5a5248"
+            }
+        },
+        m.eN, ew ? h("span", {
+            style: {
+                marginLeft: 6,
+                fontSize: "0.7rem"
+            }
+        }, "\u25CF") : null)), // Center
+        h("div", {
+            style: {
+                textAlign: "center",
+                minWidth: 45,
+                fontFamily: "'Noto Sans JP',sans-serif"
+            }
+        },
+        hr ? h("div", {
+            style: {
+                fontSize: "0.6rem",
+                color: "#7a6f60",
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                lineHeight: 1.4
+            }
+        }, m.km || "\u2014")
+        : h("div", {
+            style: {
+                fontSize: "0.75rem",
+                color: "#4a4238",
+                fontWeight: 600
+            }
+        }, "VS")), // West
+        h("div", {
+            style: {
+                textAlign: "left",
+                cursor: "pointer"
+            },
+            onClick: function() {
+                if (m.wId)
+                    p.onSel(m.wId, m.wN);
+            }
+        },
+        h("span", {
+            style: {
+                fontSize: "0.65rem",
+                color: "#6b6156",
+                fontFamily: "'Noto Sans JP',sans-serif",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em"
+            }
+        }, rs(m.wR)),
+        h("div", {
+            style: {
+                fontSize: "1.05rem",
+                fontFamily: "'Crimson Text',serif",
+                fontWeight: 600,
+                color: !hr ? "#c9bca8" : ww ? "#d4a843" : "#5a5248"
+            }
+        },
+        ww ? h("span", {
+            style: {
+                marginRight: 6,
+                fontSize: "0.7rem"
+            }
+        }, "\u25CF") : null, m.wN))));
+    }
 
-/* --- Standings --- */
-function Standings(p){
-  var sorted=useMemo(function(){
-    return p.ws.slice().sort(function(a,b){
-      var d=(b.wins-b.losses)-(a.wins-a.losses);
-      if(d!==0)return d;
-      if(b.wins!==a.wins)return b.wins-a.wins;
-      return ri(a.rank)-ri(b.rank);
-    });
-  },[p.ws]);
-  if(!sorted.length)return h(Err,{msg:"No standings data available yet."});
-  var tc={yokozuna:"#d4a843",ozeki:"#c47a3a",sanyaku:"#8a7d6b",maegashira:"#5a5248"};
-  var rows=sorted.map(function(r,i){
-    var tot=r.wins+r.losses,pct=tot>0?r.wins/tot:0,tier=rt(r.rank);
-    return h("div",{key:r.id,onClick:function(){p.onSel(r.id,r.name);},
-      onMouseEnter:function(e){e.currentTarget.style.background="rgba(191,161,104,0.05)";},
-      onMouseLeave:function(e){e.currentTarget.style.background="transparent";},
-      style:{display:"grid",gridTemplateColumns:"auto 1fr auto auto",gap:"0 0.75rem",alignItems:"center",padding:"0.6rem 0.75rem",borderBottom:"1px solid rgba(45,39,31,0.5)",cursor:"pointer",transition:"background 0.15s"}},
-      h("div",{style:{fontFamily:"'Noto Sans JP',sans-serif",fontSize:"0.75rem",color:i<3?"#d4a843":"#5a5248",fontWeight:i<3?700:400,minWidth:24}},i+1),
-      h("div",null,
-        h("div",{style:{fontFamily:"'Crimson Text',serif",fontSize:"1rem",color:"#c9bca8",fontWeight:600}},r.name),
-        h("div",{style:{fontFamily:"'Noto Sans JP',sans-serif",fontSize:"0.6rem",color:tc[tier],textTransform:"uppercase",letterSpacing:"0.05em"}},rs(r.rank))),
-      h("div",{style:{fontFamily:"'Noto Sans JP',sans-serif",fontSize:"0.9rem",fontWeight:600,color:r.wins>r.losses?"#7aa86b":r.wins<r.losses?"#a86b6b":"#8a7d6b"}},r.wins+"-"+r.losses),
-      h("div",{style:{width:60,height:6,background:"#2d271f",borderRadius:3,overflow:"hidden"}},
-        h("div",{style:{width:(pct*100)+"%",height:"100%",borderRadius:3,background:pct>=0.5?"linear-gradient(90deg,#5a7a4a,#7aa86b)":"linear-gradient(90deg,#a86b6b,#7a4a4a)",transition:"width 0.3s ease"}})));
-  });
-  return h("div",{style:{padding:"0 0.5rem"}},
-    h("div",{style:{display:"grid",gridTemplateColumns:"auto 1fr auto auto",gap:"0 0.75rem",alignItems:"center",padding:"0.5rem 0.75rem",borderBottom:"1px solid #2d271f",fontFamily:"'Noto Sans JP',sans-serif",fontSize:"0.6rem",color:"#5a5248",textTransform:"uppercase",letterSpacing:"0.1em"}},
-      h("div",null,"#"),h("div",null,"Rikishi"),h("div",null,"W-L"),h("div",{style:{width:60}})),
-    rows);
-}
+    /* --- Standings --- */
+    function Standings(p) {
+        var sorted = useMemo(function() {
+            return p.ws.slice().sort(function(a, b) {
+                var d = (b.wins - b.losses) - (a.wins - a.losses);
+                if (d !== 0)
+                    return d;
+                if (b.wins !== a.wins)
+                    return b.wins - a.wins;
+                return ri(a.rank) - ri(b.rank);
+            });
+        }, [p.ws]);
+        if (!sorted.length)
+            return h(Err, {
+                msg: "No standings data available yet."
+            });
+        var tc = {
+            yokozuna: "#d4a843",
+            ozeki: "#c47a3a",
+            sanyaku: "#8a7d6b",
+            maegashira: "#5a5248"
+        };
+        var rows = sorted.map(function(r, i) {
+            var tot = r.wins + r.losses,
+                pct = tot > 0 ? r.wins / tot : 0,
+                tier = rt(r.rank);
+            return h("div", {
+                key: r.id,
+                onClick: function() {
+                    p.onSel(r.id, r.name);
+                },
+                onMouseEnter: function(e) {
+                    e.currentTarget.style.background = "rgba(191,161,104,0.05)";
+                },
+                onMouseLeave: function(e) {
+                    e.currentTarget.style.background = "transparent";
+                },
+                style: {
+                    display: "grid",
+                    gridTemplateColumns: "auto 1fr auto auto",
+                    gap: "0 0.75rem",
+                    alignItems: "center",
+                    padding: "0.6rem 0.75rem",
+                    borderBottom: "1px solid rgba(45,39,31,0.5)",
+                    cursor: "pointer",
+                    transition: "background 0.15s"
+                }
+            },
+            h("div", {
+                style: {
+                    fontFamily: "'Noto Sans JP',sans-serif",
+                    fontSize: "0.75rem",
+                    color: i < 3 ? "#d4a843" : "#5a5248",
+                    fontWeight: i < 3 ? 700 : 400,
+                    minWidth: 24
+                }
+            }, i + 1),
+            h("div", null,
+            h("div", {
+                style: {
+                    fontFamily: "'Crimson Text',serif",
+                    fontSize: "1rem",
+                    color: "#c9bca8",
+                    fontWeight: 600
+                }
+            }, r.name),
+            h("div", {
+                style: {
+                    fontFamily: "'Noto Sans JP',sans-serif",
+                    fontSize: "0.6rem",
+                    color: tc[tier],
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em"
+                }
+            }, rs(r.rank))),
+            h("div", {
+                style: {
+                    fontFamily: "'Noto Sans JP',sans-serif",
+                    fontSize: "0.9rem",
+                    fontWeight: 600,
+                    color: r.wins > r.losses ? "#7aa86b" : r.wins < r.losses ? "#a86b6b" : "#8a7d6b"
+                }
+            }, r.wins + "-" + r.losses),
+            h("div", {
+                style: {
+                    width: 60,
+                    height: 6,
+                    background: "#2d271f",
+                    borderRadius: 3,
+                    overflow: "hidden"
+                }
+            },
+            h("div", {
+                style: {
+                    width: (pct * 100) + "%",
+                    height: "100%",
+                    borderRadius: 3,
+                    background: pct >= 0.5 ? "linear-gradient(90deg,#5a7a4a,#7aa86b)" : "linear-gradient(90deg,#a86b6b,#7a4a4a)",
+                    transition: "width 0.3s ease"
+                }
+            })));
+        });
+        return h("div", {
+            style: {
+                padding: "0 0.5rem"
+            }
+        },
+        h("div", {
+            style: {
+                display: "grid",
+                gridTemplateColumns: "auto 1fr auto auto",
+                gap: "0 0.75rem",
+                alignItems: "center",
+                padding: "0.5rem 0.75rem",
+                borderBottom: "1px solid #2d271f",
+                fontFamily: "'Noto Sans JP',sans-serif",
+                fontSize: "0.6rem",
+                color: "#5a5248",
+                textTransform: "uppercase",
+                letterSpacing: "0.1em"
+            }
+        },
+        h("div", null, "#"), h("div", null, "Rikishi"), h("div", null, "W-L"), h("div", {
+            style: {
+                width: 60
+            }
+        })),
+        rows);
+    }
 
-/* --- Rikishi Modal --- */
-function RikishiModal(p){
-  var st=useState(null),info=st[0],setInfo=st[1];
-  var st2=useState(true),ld=st2[0],setLd=st2[1];
-  useEffect(function(){
-    setLd(true);setInfo(null);
-    fjson(API+"/rikishi/"+p.rid).then(function(d){setInfo(d);setLd(false);});
-  },[p.rid]);
-  var w=useMemo(function(){return p.ws.find(function(x){return x.id===p.rid;});},[p.rid,p.ws]);
-  var hist=useMemo(function(){
-    if(!w||!w.record)return[];
-    return w.record.map(function(r,i){
-      var won=r.result==="win"||r.result==="fusen win";
-      var lost=r.result==="loss"||r.result==="fusen loss";
-      return{day:i+1,opp:r.opponentShikonaEn||r.opponentShikona||r.opponent||"\u2014",won:won,has:won||lost,km:r.kimarite||""};
-    });
-  },[w]);
-  var wins=w?w.wins:0,losses=w?w.losses:0;
-  var matchRows=hist.map(function(m,i){
-    return h("div",{key:i,style:{display:"grid",gridTemplateColumns:"32px 1fr auto",gap:"0 0.75rem",alignItems:"center",padding:"0.5rem",borderBottom:"1px solid rgba(45,39,31,0.5)"}},
-      h("div",{style:{fontFamily:"'Noto Sans JP',sans-serif",fontSize:"0.7rem",color:"#5a5248"}},"Day "+m.day),
-      h("div",null,
-        h("span",{style:{fontFamily:"'Crimson Text',serif",fontSize:"0.95rem",color:"#c9bca8"}},"vs "+m.opp),
-        m.km?h("span",{style:{fontFamily:"'Noto Sans JP',sans-serif",fontSize:"0.6rem",color:"#6b6156",marginLeft:8}},m.km):null),
-      h("div",{style:{fontFamily:"'Noto Sans JP',sans-serif",fontSize:"0.8rem",fontWeight:700,color:!m.has?"#4a4238":m.won?"#7aa86b":"#a86b6b"}},!m.has?"\u2014":m.won?"WIN":"LOSS"));
-  });
+    /* --- Rikishi Modal --- */
+    function RikishiModal(p) {
+        var st = useState(null),
+            info = st[0],
+            setInfo = st[1];
+        var st2 = useState(true),
+            ld = st2[0],
+            setLd = st2[1];
+        useEffect(function() {
+            setLd(true);
+            setInfo(null);
+            fjson(API + "/rikishi/" + p.rid).then(function(d) {
+                setInfo(d);
+                setLd(false);
+            });
+        }, [p.rid]);
+        var w = useMemo(function() {
+            return p.ws.find(function(x) {
+                return x.id === p.rid;
+            });
+        }, [p.rid, p.ws]);
+        var hist = useMemo(function() {
+            if (!w || !w.record)
+                return [];
+            return w.record.map(function(r, i) {
+                var won = r.result === "win" || r.result === "fusen win";
+                var lost = r.result === "loss" || r.result === "fusen loss";
+                return {
+                    day: i + 1,
+                    opp: r.opponentShikonaEn || r.opponentShikona || r.opponent || "\u2014",
+                    won: won,
+                    has: won || lost,
+                    km: r.kimarite || ""
+                };
+            });
+        }, [w]);
+        var wins = w ? w.wins : 0,
+            losses = w ? w.losses : 0;
+        var matchRows = hist.map(function(m, i) {
+            return h("div", {
+                key: i,
+                style: {
+                    display: "grid",
+                    gridTemplateColumns: "32px 1fr auto",
+                    gap: "0 0.75rem",
+                    alignItems: "center",
+                    padding: "0.5rem",
+                    borderBottom: "1px solid rgba(45,39,31,0.5)"
+                }
+            },
+            h("div", {
+                style: {
+                    fontFamily: "'Noto Sans JP',sans-serif",
+                    fontSize: "0.7rem",
+                    color: "#5a5248"
+                }
+            }, "Day " + m.day),
+            h("div", null,
+            h("span", {
+                style: {
+                    fontFamily: "'Crimson Text',serif",
+                    fontSize: "0.95rem",
+                    color: "#c9bca8"
+                }
+            }, "vs " + m.opp),
+            m.km ? h("span", {
+                style: {
+                    fontFamily: "'Noto Sans JP',sans-serif",
+                    fontSize: "0.6rem",
+                    color: "#6b6156",
+                    marginLeft: 8
+                }
+            }, m.km) : null),
+            h("div", {
+                style: {
+                    fontFamily: "'Noto Sans JP',sans-serif",
+                    fontSize: "0.8rem",
+                    fontWeight: 700,
+                    color: !m.has ? "#4a4238" : m.won ? "#7aa86b" : "#a86b6b"
+                }
+            }, !m.has ? "\u2014" : m.won ? "WIN" : "LOSS"));
+        });
 
-  return h("div",{style:{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:1000},
-    onClick:function(e){if(e.target===e.currentTarget)p.onClose();}},
-    h("div",{style:{background:"#1a1612",borderTop:"2px solid #BFA168",borderRadius:"16px 16px 0 0",width:"100%",maxWidth:500,maxHeight:"85vh",overflow:"auto",padding:"1.5rem 1rem",animation:"slideUp 0.3s ease"}},
-      h("div",{style:{display:"flex",justifyContent:"center",marginBottom:"1rem"}},h("div",{style:{width:40,height:4,borderRadius:2,background:"#3a3225"}})),
-      ld?h(Spinner):h(React.Fragment,null,
-        h("div",{style:{textAlign:"center",marginBottom:"1.5rem"}},
-          h("h2",{style:{fontFamily:"'Crimson Text',serif",fontSize:"1.75rem",color:"#e8dcc8",margin:0}},p.rname),
-          info?h("div",{style:{fontFamily:"'Noto Sans JP',sans-serif",fontSize:"0.75rem",color:"#7a6f60",marginTop:"0.5rem",lineHeight:1.8}},
-            info.currentRank?info.currentRank:"",
-            info.heya?" \u00B7 "+info.heya+" stable":"",
-            info.birthDate?" \u00B7 Born "+info.birthDate:"",
-            h("br"),
-            info.height?info.height+"cm":"",
-            info.weight?" / "+info.weight+"kg":"",
-            info.birthPlace?" \u00B7 "+info.birthPlace:""):null,
-          h("div",{style:{display:"inline-flex",gap:"1rem",marginTop:"1rem",padding:"0.5rem 1.5rem",background:"#242019",borderRadius:8}},
-            h("div",{style:{textAlign:"center"}},
-              h("div",{style:{fontFamily:"'Noto Sans JP',sans-serif",fontSize:"1.5rem",fontWeight:700,color:"#7aa86b"}},wins),
-              h("div",{style:{fontFamily:"'Noto Sans JP',sans-serif",fontSize:"0.6rem",color:"#5a5248",textTransform:"uppercase"}},"Wins")),
-            h("div",{style:{width:1,background:"#2d271f"}}),
-            h("div",{style:{textAlign:"center"}},
-              h("div",{style:{fontFamily:"'Noto Sans JP',sans-serif",fontSize:"1.5rem",fontWeight:700,color:"#a86b6b"}},losses),
-              h("div",{style:{fontFamily:"'Noto Sans JP',sans-serif",fontSize:"0.6rem",color:"#5a5248",textTransform:"uppercase"}},"Losses")))),
-        h("div",{style:{fontFamily:"'Noto Sans JP',sans-serif",fontSize:"0.65rem",color:"#5a5248",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:"0.75rem",paddingLeft:"0.5rem"}},"This Basho's Matches"),
-        hist.length?matchRows:h("div",{style:{textAlign:"center",color:"#5a5248",padding:"1rem"}},"No matches found.")),
-      h("button",{onClick:p.onClose,style:{display:"block",width:"100%",marginTop:"1.25rem",padding:"0.75rem",background:"#242019",border:"1px solid #2d271f",borderRadius:8,color:"#8a7d6b",fontFamily:"'Crimson Text',serif",fontSize:"1rem",cursor:"pointer"}},"Close")));
-}
+        return h("div", {
+            style: {
+                position: "fixed",
+                inset: 0,
+                background: "rgba(0,0,0,0.75)",
+                display: "flex",
+                alignItems: "flex-end",
+                justifyContent: "center",
+                zIndex: 1000
+            },
+            onClick: function(e) {
+                if (e.target === e.currentTarget)
+                    p.onClose();
+            }
+        },
+        h("div", {
+            style: {
+                background: "#1a1612",
+                borderTop: "2px solid #BFA168",
+                borderRadius: "16px 16px 0 0",
+                width: "100%",
+                maxWidth: 500,
+                maxHeight: "85vh",
+                overflow: "auto",
+                padding: "1.5rem 1rem",
+                animation: "slideUp 0.3s ease"
+            }
+        },
+        h("div", {
+            style: {
+                display: "flex",
+                justifyContent: "center",
+                marginBottom: "1rem"
+            }
+        }, h("div", {
+            style: {
+                width: 40,
+                height: 4,
+                borderRadius: 2,
+                background: "#3a3225"
+            }
+        })),
+        ld ? h(Spinner) : h(React.Fragment, null,
+        h("div", {
+            style: {
+                textAlign: "center",
+                marginBottom: "1.5rem"
+            }
+        },
+        h("h2", {
+            style: {
+                fontFamily: "'Crimson Text',serif",
+                fontSize: "1.75rem",
+                color: "#e8dcc8",
+                margin: 0
+            }
+        }, p.rname),
+        info ? h("div", {
+            style: {
+                fontFamily: "'Noto Sans JP',sans-serif",
+                fontSize: "0.75rem",
+                color: "#7a6f60",
+                marginTop: "0.5rem",
+                lineHeight: 1.8
+            }
+        },
+        info.currentRank ? info.currentRank : "",
+        info.heya ? " \u00B7 " + info.heya + " stable" : "",
+        info.birthDate ? " \u00B7 Born " + info.birthDate : "",
+        h("br"),
+        info.height ? info.height + "cm" : "",
+        info.weight ? " / " + info.weight + "kg" : "",
+        info.birthPlace ? " \u00B7 " + info.birthPlace : "") : null,
+        h("div", {
+            style: {
+                display: "inline-flex",
+                gap: "1rem",
+                marginTop: "1rem",
+                padding: "0.5rem 1.5rem",
+                background: "#242019",
+                borderRadius: 8
+            }
+        },
+        h("div", {
+            style: {
+                textAlign: "center"
+            }
+        },
+        h("div", {
+            style: {
+                fontFamily: "'Noto Sans JP',sans-serif",
+                fontSize: "1.5rem",
+                fontWeight: 700,
+                color: "#7aa86b"
+            }
+        }, wins),
+        h("div", {
+            style: {
+                fontFamily: "'Noto Sans JP',sans-serif",
+                fontSize: "0.6rem",
+                color: "#5a5248",
+                textTransform: "uppercase"
+            }
+        }, "Wins")),
+        h("div", {
+            style: {
+                width: 1,
+                background: "#2d271f"
+            }
+        }),
+        h("div", {
+            style: {
+                textAlign: "center"
+            }
+        },
+        h("div", {
+            style: {
+                fontFamily: "'Noto Sans JP',sans-serif",
+                fontSize: "1.5rem",
+                fontWeight: 700,
+                color: "#a86b6b"
+            }
+        }, losses),
+        h("div", {
+            style: {
+                fontFamily: "'Noto Sans JP',sans-serif",
+                fontSize: "0.6rem",
+                color: "#5a5248",
+                textTransform: "uppercase"
+            }
+        }, "Losses")))),
+        h("div", {
+            style: {
+                fontFamily: "'Noto Sans JP',sans-serif",
+                fontSize: "0.65rem",
+                color: "#5a5248",
+                textTransform: "uppercase",
+                letterSpacing: "0.1em",
+                marginBottom: "0.75rem",
+                paddingLeft: "0.5rem"
+            }
+        }, "This Basho's Matches"),
+        hist.length ? matchRows : h("div", {
+            style: {
+                textAlign: "center",
+                color: "#5a5248",
+                padding: "1rem"
+            }
+        }, "No matches found.")),
+        h("button", {
+            onClick: p.onClose,
+            style: {
+                display: "block",
+                width: "100%",
+                marginTop: "1.25rem",
+                padding: "0.75rem",
+                background: "#242019",
+                border: "1px solid #2d271f",
+                borderRadius: 8,
+                color: "#8a7d6b",
+                fontFamily: "'Crimson Text',serif",
+                fontSize: "1rem",
+                cursor: "pointer"
+            }
+        }, "Close")));
+    }
 
-/* --- Kimarite Stats --- */
-function KStats(p){
-  var stats=useMemo(function(){
-    var c={};
-    for(var i=0;i<p.ws.length;i++){var rec=p.ws[i].record;if(!rec)continue;
-      for(var j=0;j<rec.length;j++){var k=rec[j].kimarite;if(k)c[k]=(c[k]||0)+1;}}
-    return Object.entries(c).sort(function(a,b){return b[1]-a[1];}).slice(0,15);
-  },[p.ws]);
-  if(!stats.length)return h(Err,{msg:"No kimarite data available yet."});
-  var mx=stats[0]?stats[0][1]:1;
-  var rows=stats.map(function(s){
-    var n=s[0],ct=s[1];
-    return h("div",{key:n,style:{display:"grid",gridTemplateColumns:"1fr auto",gap:"0.5rem",alignItems:"center",padding:"0.4rem 0.5rem"}},
-      h("div",null,
-        h("div",{style:{fontFamily:"'Crimson Text',serif",fontSize:"0.95rem",color:"#c9bca8"}},n),
-        h("div",{style:{height:4,borderRadius:2,marginTop:3,background:"#2d271f",overflow:"hidden"}},
-          h("div",{style:{width:((ct/mx)*100)+"%",height:"100%",background:"linear-gradient(90deg,#BFA168,#d4a843)",borderRadius:2,transition:"width 0.4s ease"}}))),
-      h("div",{style:{fontFamily:"'Noto Sans JP',sans-serif",fontSize:"0.85rem",fontWeight:600,color:"#BFA168",minWidth:28,textAlign:"right"}},ct));
-  });
-  return h("div",{style:{padding:"0.5rem"}},
-    h("div",{style:{fontFamily:"'Noto Sans JP',sans-serif",fontSize:"0.65rem",color:"#5a5248",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:"1rem",textAlign:"center"}},"Top Winning Techniques This Basho"),
-    rows);
-}
+    /* --- Kimarite Stats --- */
+    function KStats(p) {
+        var stats = useMemo(function() {
+            var c = {};
+            for (var i = 0; i < p.ws.length; i++) {
+                var rec = p.ws[i].record;
+                if (!rec)
+                    continue;
+                for (var j = 0; j < rec.length; j++) {
+                    var k = rec[j].kimarite;
+                    if (k)
+                        c[k] = (c[k] || 0) + 1;
+                }
+            }
+            return Object.entries(c).sort(function(a, b) {
+                return b[1] - a[1];
+            }).slice(0, 15);
+        }, [p.ws]);
+        if (!stats.length)
+            return h(Err, {
+                msg: "No kimarite data available yet."
+            });
+        var mx = stats[0] ? stats[0][1] : 1;
+        var rows = stats.map(function(s) {
+            var n = s[0],
+                ct = s[1];
+            return h("div", {
+                key: n,
+                style: {
+                    display: "grid",
+                    gridTemplateColumns: "1fr auto",
+                    gap: "0.5rem",
+                    alignItems: "center",
+                    padding: "0.4rem 0.5rem"
+                }
+            },
+            h("div", null,
+            h("div", {
+                style: {
+                    fontFamily: "'Crimson Text',serif",
+                    fontSize: "0.95rem",
+                    color: "#c9bca8"
+                }
+            }, n),
+            h("div", {
+                style: {
+                    height: 4,
+                    borderRadius: 2,
+                    marginTop: 3,
+                    background: "#2d271f",
+                    overflow: "hidden"
+                }
+            },
+            h("div", {
+                style: {
+                    width: ((ct / mx) * 100) + "%",
+                    height: "100%",
+                    background: "linear-gradient(90deg,#BFA168,#d4a843)",
+                    borderRadius: 2,
+                    transition: "width 0.4s ease"
+                }
+            }))),
+            h("div", {
+                style: {
+                    fontFamily: "'Noto Sans JP',sans-serif",
+                    fontSize: "0.85rem",
+                    fontWeight: 600,
+                    color: "#BFA168",
+                    minWidth: 28,
+                    textAlign: "right"
+                }
+            }, ct));
+        });
+        return h("div", {
+            style: {
+                padding: "0.5rem"
+            }
+        },
+        h("div", {
+            style: {
+                fontFamily: "'Noto Sans JP',sans-serif",
+                fontSize: "0.65rem",
+                color: "#5a5248",
+                textTransform: "uppercase",
+                letterSpacing: "0.1em",
+                marginBottom: "1rem",
+                textAlign: "center"
+            }
+        }, "Top Winning Techniques This Basho"),
+        rows);
+    }
 
-/* === Main App === */
-function App(){
-  var s1=useState(BASHO[0].id),bid=s1[0],setBid=s1[1];
-  var s2=useState(1),day=s2[0],setDay=s2[1];
-  var s3=useState(1),maxD=s3[0],setMaxD=s3[1];
-  var s4=useState("results"),tab=s4[0],setTab=s4[1];
-  var s5=useState([]),ws=s5[0],setWs=s5[1];
-  var s6=useState(true),ld=s6[0],setLd=s6[1];
-  var s7=useState(null),err=s7[0],setErr=s7[1];
-  var s8=useState(null),sel=s8[0],setSel=s8[1];
-  var s9=useState(0),rc=s9[0],setRc=s9[1];
-  var cb=BASHO.find(function(b){return b.id===bid;});
+    /* === Main App === */
+    function App() {
+        var s1 = useState(BASHO[0].id),
+            bid = s1[0],
+            setBid = s1[1];
+        var s2 = useState(1),
+            day = s2[0],
+            setDay = s2[1];
+        var s3 = useState(1),
+            maxD = s3[0],
+            setMaxD = s3[1];
+        var s4 = useState("results"),
+            tab = s4[0],
+            setTab = s4[1];
+        var s5 = useState([]),
+            ws = s5[0],
+            setWs = s5[1];
+        var s6 = useState(true),
+            ld = s6[0],
+            setLd = s6[1];
+        var s7 = useState(null),
+            err = s7[0],
+            setErr = s7[1];
+        var s8 = useState(null),
+            sel = s8[0],
+            setSel = s8[1];
+        var s9 = useState(0),
+            rc = s9[0],
+            setRc = s9[1];
+        var cb = BASHO.find(function(b) {
+            return b.id === bid;
+        });
 
-  useEffect(function(){
-    var x=false;
-    setLd(true);setErr(null);setWs([]);setDay(1);setMaxD(1);
-    fjson(API+"/basho/"+bid+"/banzuke/Makuuchi").then(function(data){
-      if(x)return;
-      if(!data){setErr("Unable to load tournament data. The API may be temporarily unavailable.");setLd(false);return;}
-      var w=norm(data);
-      if(!w.length){setErr("No wrestlers found for this tournament.");setLd(false);return;}
-      var longest=0;
-      for(var i=0;i<w.length;i++){if(w[i].record&&w[i].record.length>longest)longest=w[i].record.length;}
-      var md=longest>0?longest:15;
-      if(x)return;
-      setWs(w);setMaxD(md);setDay(md);setLd(false);
-    });
-    return function(){x=true;};
-  },[bid,rc]);
+        useEffect(function() {
+            var x = false;
+            setLd(true);
+            setErr(null);
+            setWs([]);
+            setDay(1);
+            setMaxD(1);
+            fjson(API + "/basho/" + bid + "/banzuke/Makuuchi").then(function(data) {
+                if (x)
+                    return;
+                if (!data) {
+                    setErr("Unable to load tournament data. The API may be temporarily unavailable.");
+                    setLd(false);
+                    return;
+                }
+                var w = norm(data);
+                if (!w.length) {
+                    setErr("No wrestlers found for this tournament.");
+                    setLd(false);
+                    return;
+                }
+                var longest = 0;
+                for (var i = 0; i < w.length; i++) {
+                    if (w[i].record && w[i].record.length > longest)
+                        longest = w[i].record.length;
+                }
+                var md = longest > 0 ? longest : 15;
+                if (x)
+                    return;
+                setWs(w);
+                setMaxD(md);
+                setDay(md);
+                setLd(false);
+            });
+            return function() {
+                x = true;
+            };
+        }, [bid, rc]);
 
-  var matches=useMemo(function(){
-    if(!ws.length||day<1)return[];
-    return dayMatches(ws,day-1);
-  },[ws,day]);
+        var matches = useMemo(function() {
+            if (!ws.length || day < 1)
+                return [];
+            return dayMatches(ws, day - 1);
+        }, [ws, day]);
 
-  var onSel=function(id,n){setSel({id:id,name:n});};
+        var onSel = function(id, n) {
+            setSel({
+                id: id,
+                name: n
+            });
+        };
 
-  var tabDefs=[{k:"results",l:"Results"},{k:"standings",l:"Standings"},{k:"kimarite",l:"Kimarite"}];
+        var tabDefs = [{
+            k: "results",
+            l: "Results"
+        }, {
+            k: "standings",
+            l: "Standings"
+        }, {
+            k: "kimarite",
+            l: "Kimarite"
+        }];
 
-  // Build tab buttons
-  var tabBtns=tabDefs.map(function(t){
-    return h("button",{key:t.k,onClick:function(){setTab(t.k);},
-      style:{flex:1,padding:"0.6rem 0.5rem",background:"none",border:"none",
-        borderBottom:t.k===tab?"2px solid #BFA168":"2px solid transparent",
-        color:t.k===tab?"#BFA168":"#5a5248",fontFamily:"'Noto Sans JP',sans-serif",
-        fontSize:"0.75rem",fontWeight:t.k===tab?600:400,cursor:"pointer",
-        textTransform:"uppercase",letterSpacing:"0.08em",transition:"all 0.2s"}},t.l);
-  });
+        // Build tab buttons
+        var tabBtns = tabDefs.map(function(t) {
+            return h("button", {
+                key: t.k,
+                onClick: function() {
+                    setTab(t.k);
+                },
+                style: {
+                    flex: 1,
+                    padding: "0.6rem 0.5rem",
+                    background: "none",
+                    border: "none",
+                    borderBottom: t.k === tab ? "2px solid #BFA168" : "2px solid transparent",
+                    color: t.k === tab ? "#BFA168" : "#5a5248",
+                    fontFamily: "'Noto Sans JP',sans-serif",
+                    fontSize: "0.75rem",
+                    fontWeight: t.k === tab ? 600 : 400,
+                    cursor: "pointer",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                    transition: "all 0.2s"
+                }
+            }, t.l);
+        });
 
-  // Build basho options
-  var opts=BASHO.map(function(b){return h("option",{key:b.id,value:b.id},b.label);});
+        // Build basho options
+        var opts = BASHO.map(function(b) {
+            return h("option", {
+                key: b.id,
+                value: b.id
+            }, b.label);
+        });
 
-  // Build match cards
-  var matchCards=matches.map(function(m,i){return h(MCard,{key:i,m:m,onSel:onSel});});
+        // Build match cards
+        var matchCards = matches.map(function(m, i) {
+            return h(MCard, {
+                key: i,
+                m: m,
+                onSel: onSel
+            });
+        });
 
-  // Content
-  var content;
-  if(ld){content=h(Spinner);}
-  else if(err){content=h(Err,{msg:err,retry:function(){setRc(function(c){return c+1;});}});}
-  else if(tab==="results"){
-    content=h(React.Fragment,null,
-      h(DaySel,{day:day,set:setDay,max:maxD}),
-      h("div",{style:{textAlign:"center",marginBottom:"1rem",fontFamily:"'Crimson Text',serif",fontSize:"1.1rem",color:"#8a7d6b"}},
-        "Day "+day,
-        day===maxD?h("span",{style:{marginLeft:8,fontSize:"0.65rem",color:"#BFA168",fontFamily:"'Noto Sans JP',sans-serif",textTransform:"uppercase",letterSpacing:"0.05em"}},"Latest"):null),
-      matches.length?matchCards:h(Err,{msg:"No matches available for this day."}));
-  }
-  else if(tab==="standings"){content=h(Standings,{ws:ws,onSel:onSel});}
-  else if(tab==="kimarite"){content=h(KStats,{ws:ws});}
+        // Content
+        var content;
+        if (ld) {
+            content = h(Spinner);
+        }
+        else if (err) {
+            content = h(Err, {
+                msg: err,
+                retry: function() {
+                    setRc(function(c) {
+                        return c + 1;
+                    });
+                }
+            });
+        }
+        else if (tab === "results") {
+            content = h(React.Fragment, null,
+            h(DaySel, {
+                day: day,
+                set: setDay,
+                max: maxD
+            }),
+            h("div", {
+                style: {
+                    textAlign: "center",
+                    marginBottom: "1rem",
+                    fontFamily: "'Crimson Text',serif",
+                    fontSize: "1.1rem",
+                    color: "#8a7d6b"
+                }
+            },
+            "Day " + day,
+            day === maxD ? h("span", {
+                style: {
+                    marginLeft: 8,
+                    fontSize: "0.65rem",
+                    color: "#BFA168",
+                    fontFamily: "'Noto Sans JP',sans-serif",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em"
+                }
+            }, "Latest") : null),
+            matches.length ? matchCards : h(Err, {
+                msg: "No matches available for this day."
+            }));
+        }
+        else if (tab === "standings") {
+            content = h(Standings, {
+                ws: ws,
+                onSel: onSel
+            });
+        }
+        else if (tab === "kimarite") {
+            content = h(KStats, {
+                ws: ws
+            });
+        }
 
-  return h("div",{style:{minHeight:"100vh",background:"#141110",color:"#c9bca8",fontFamily:"'Crimson Text',serif"}},
-    // Header
-    h("header",{style:{background:"linear-gradient(180deg,#1e1a14 0%,#141110 100%)",borderBottom:"1px solid #2d271f",padding:"1rem 1rem 0.75rem",position:"sticky",top:0,zIndex:100}},
-      h("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.75rem"}},
-        h("div",{style:{display:"flex",alignItems:"center",gap:"0.75rem"}},
-          h("div",{style:{width:36,height:36,borderRadius:"50%",background:"linear-gradient(135deg,#BFA168,#8a6d3b)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1.1rem",fontWeight:700,color:"#1a1612",fontFamily:"'Noto Sans JP',sans-serif",boxShadow:"0 2px 8px rgba(191,161,104,0.3)"}},"\u529B"),
-          h("div",null,
-            h("h1",{style:{fontSize:"1.25rem",fontWeight:700,color:"#e8dcc8",letterSpacing:"0.03em",lineHeight:1.1}},"DOHY\u014C"),
-            h("div",{style:{fontFamily:"'Noto Sans JP',sans-serif",fontSize:"0.55rem",color:"#6b6156",textTransform:"uppercase",letterSpacing:"0.15em"}},"Grand Sumo Results"))),
-        h("div",{style:{position:"relative"}},
-          h("select",{value:bid,onChange:function(e){setBid(e.target.value);},
-            style:{background:"#242019",border:"1px solid #2d271f",borderRadius:6,color:"#BFA168",fontFamily:"'Noto Sans JP',sans-serif",fontSize:"0.75rem",padding:"0.4rem 1.5rem 0.4rem 0.6rem",cursor:"pointer",outline:"none"}},opts),
-          h("span",{style:{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",pointerEvents:"none",color:"#BFA168",fontSize:"0.6rem"}},"\u25BE"))),
-      cb?h("div",{style:{display:"flex",justifyContent:"center",gap:"1.5rem",marginBottom:"0.75rem",fontFamily:"'Noto Sans JP',sans-serif",fontSize:"0.65rem",color:"#6b6156"}},
-        h("span",null,cb.location),h("span",null,"\u00B7"),h("span",null,cb.month+" Tournament"),h("span",null,"\u00B7"),h("span",null,"Makuuchi Division")):null,
-      h("div",{style:{display:"flex",gap:0,borderBottom:"1px solid #2d271f"}},tabBtns)),
-    // Main
-    h("main",{style:{maxWidth:500,margin:"0 auto",padding:"0.5rem 0.5rem 3rem"}},content),
-    // Modal
-    sel?h(RikishiModal,{rid:sel.id,rname:sel.name,ws:ws,onClose:function(){setSel(null);}}):null,
-    // Footer
-    h("footer",{style:{textAlign:"center",padding:"1.5rem 1rem",borderTop:"1px solid #2d271f",fontFamily:"'Noto Sans JP',sans-serif",fontSize:"0.6rem",color:"#3a3225"}},
-      "Data provided by sumo-api.com \u00B7 Not affiliated with the Japan Sumo Association"));
-}
+        return h("div", {
+            style: {
+                minHeight: "100vh",
+                background: "#141110",
+                color: "#c9bca8",
+                fontFamily: "'Crimson Text',serif"
+            }
+        }, // Header
+        h("header", {
+            style: {
+                background: "linear-gradient(180deg,#1e1a14 0%,#141110 100%)",
+                borderBottom: "1px solid #2d271f",
+                padding: "1rem 1rem 0.75rem",
+                position: "sticky",
+                top: 0,
+                zIndex: 100
+            }
+        },
+        h("div", {
+            style: {
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: "0.75rem"
+            }
+        },
+        h("div", {
+            style: {
+                display: "flex",
+                alignItems: "center",
+                gap: "0.75rem"
+            }
+        },
+        h("div", {
+            style: {
+                width: 36,
+                height: 36,
+                borderRadius: "50%",
+                background: "linear-gradient(135deg,#BFA168,#8a6d3b)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "1.1rem",
+                fontWeight: 700,
+                color: "#1a1612",
+                fontFamily: "'Noto Sans JP',sans-serif",
+                boxShadow: "0 2px 8px rgba(191,161,104,0.3)"
+            }
+        }, "\u529B"),
+        h("div", null,
+        h("h1", {
+            style: {
+                fontSize: "1.25rem",
+                fontWeight: 700,
+                color: "#e8dcc8",
+                letterSpacing: "0.03em",
+                lineHeight: 1.1
+            }
+        }, "DOHY\u014C"),
+        h("div", {
+            style: {
+                fontFamily: "'Noto Sans JP',sans-serif",
+                fontSize: "0.55rem",
+                color: "#6b6156",
+                textTransform: "uppercase",
+                letterSpacing: "0.15em"
+            }
+        }, "Grand Sumo Results"))),
+        h("div", {
+            style: {
+                position: "relative"
+            }
+        },
+        h("select", {
+            value: bid,
+            onChange: function(e) {
+                setBid(e.target.value);
+            },
+            style: {
+                background: "#242019",
+                border: "1px solid #2d271f",
+                borderRadius: 6,
+                color: "#BFA168",
+                fontFamily: "'Noto Sans JP',sans-serif",
+                fontSize: "0.75rem",
+                padding: "0.4rem 1.5rem 0.4rem 0.6rem",
+                cursor: "pointer",
+                outline: "none"
+            }
+        }, opts),
+        h("span", {
+            style: {
+                position: "absolute",
+                right: 8,
+                top: "50%",
+                transform: "translateY(-50%)",
+                pointerEvents: "none",
+                color: "#BFA168",
+                fontSize: "0.6rem"
+            }
+        }, "\u25BE"))),
+        cb ? h("div", {
+            style: {
+                display: "flex",
+                justifyContent: "center",
+                gap: "1.5rem",
+                marginBottom: "0.75rem",
+                fontFamily: "'Noto Sans JP',sans-serif",
+                fontSize: "0.65rem",
+                color: "#6b6156"
+            }
+        },
+        h("span", null, cb.location), h("span", null, "\u00B7"), h("span", null, cb.month + " Tournament"), h("span", null, "\u00B7"), h("span", null, "Makuuchi Division")) : null,
+        h("div", {
+            style: {
+                display: "flex",
+                gap: 0,
+                borderBottom: "1px solid #2d271f"
+            }
+        }, tabBtns)), // Main
+        h("main", {
+            style: {
+                maxWidth: 500,
+                margin: "0 auto",
+                padding: "0.5rem 0.5rem 3rem"
+            }
+        }, content), // Modal
+        sel ? h(RikishiModal, {
+            rid: sel.id,
+            rname: sel.name,
+            ws: ws,
+            onClose: function() {
+                setSel(null);
+            }
+        }) : null, // Footer
+        h("footer", {
+            style: {
+                textAlign: "center",
+                padding: "1.5rem 1rem",
+                borderTop: "1px solid #2d271f",
+                fontFamily: "'Noto Sans JP',sans-serif",
+                fontSize: "0.6rem",
+                color: "#3a3225"
+            }
+        },
+        "Data provided by sumo-api.com \u00B7 Not affiliated with the Japan Sumo Association"));
+    }
 
-ReactDOM.createRoot(document.getElementById("root")).render(h(App));
-</script>
+    ReactDOM.createRoot(document.getElementById("root")).render(h(App));
+    </script>
 </body>
 </html>
